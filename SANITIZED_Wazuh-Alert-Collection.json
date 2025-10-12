@@ -1,0 +1,174 @@
+{
+  "name": "Wazuh Alert Collection",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Get alert from WAZUH",
+        "height": 224,
+        "width": 288
+      },
+      "id": "00000000-0000-4000-8000-000000000000",
+      "name": "Sticky Note - Info",
+      "type": "example.internal",
+      "typeVersion": 1,
+      "position": [
+        -480,
+        -32
+      ],
+      "notes": "WAZUH ALERT COLLECTION WORKFLOW\n\nThis workflow receives Wazuh alerts via webhook and stores them in PostgreSQL.\n\nWebhook URL: https://example.internal/webhook/wazuh-alert\n\nConfiguration in Wazuh:\n1. Add webhook integration\n2. Set URL to the webhook endpoint above\n3. Set method to POST\n4. Test with a sample alert"
+    },
+    {
+      "parameters": {
+        "content": "## Insert data to Data table",
+        "height": 224,
+        "width": 592,
+        "color": 5
+      },
+      "id": "00000000-0000-4000-8000-000000000000",
+      "name": "Sticky Note - Database",
+      "type": "example.internal",
+      "typeVersion": 1,
+      "position": [
+        -176,
+        -32
+      ],
+      "notes": "DATABASE STORAGE\n\nStores alerts in PostgreSQL:\n- agent_name\n- agent_ip\n- alert_data (JSON)\n- timestamp\n- processed (false by default)\n\nMake sure to configure your Postgres credentials!"
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "zudfsm5mw1BASPoF",
+          "mode": "list",
+          "cachedResultName": "wazuh_alerts",
+          "cachedResultUrl": "/projects/ymACnKoPuW31v4Am/datatables/zudfsm5mw1BASPoF"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "00000000-0000-4000-8000-000000000000",
+      "name": "Insert to Data Table",
+      "type": "example.internal",
+      "typeVersion": 1,
+      "position": [
+        32,
+        32
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log success and return summary\nconst items = $example.internal();\n\nconst summary = {\n  success: true,\n  alerts_stored: example.internal,\n  timestamp: new Date().toISOString(),\n  table: 'wazuh_alerts',\n  agents: [...new Set(example.internal(i => example.internal.agent_name))],\n  severity_levels: example.internal(i => example.internal.rule_level)\n};\n\example.internal('=== ALERT STORAGE SUMMARY ===');\example.internal(`Stored ${summary.alerts_stored} alert(s)`);\example.internal(`Agents: ${example.internal(', ')}`);\example.internal(`Severity levels: ${summary.severity_levels.join(', ')}`);\n\nreturn { json: summary };"
+      },
+      "id": "00000000-0000-4000-8000-000000000000",
+      "name": "Log Summary",
+      "type": "example.internal",
+      "typeVersion": 2,
+      "position": [
+        208,
+        32
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wazuh-alert",
+        "options": {}
+      },
+      "id": "00000000-0000-4000-8000-000000000000",
+      "name": "Wazuh Webhook",
+      "type": "example.internal",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        32
+      ],
+      "webhookId": \"example-webhook\"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract and structure alert data from Wazuh webhook (body.* fields)\nconst items = $example.internal();\nconst processedAlerts = [];\n\nfor (const item of items) {\n  // n8n Webhook przekazuje payload w example.internal.{...}\n  const root = example.internal || {};\n  const body = example.internal || {};\n\n  // Agent z example.internal.*\n  const agentName = example.internal?.name ?? 'unknown-agent';\n  const agentIp = example.internal?.ip ?? '0.0.0.0';\n  const agentId = example.internal?.id ?? 'unknown';\n\n  // Rule z example.internal.*\n  const ruleIdRaw = example.internal?.id ?? 'unknown';\n  const ruleLevelRaw = example.internal?.level ?? 0;\n  const ruleDescription = example.internal?.description ?? 'No description';\n  const ruleGroups = example.internal(example.internal?.groups) ? example.internal : [];\n\n  const rule_id = typeof ruleIdRaw === 'string' ? ruleIdRaw : String(ruleIdRaw);\n  const rule_level = example.internal(ruleLevelRaw, 10) || 0;\n\n  // Timestamp i location z body.*\n  const timestamp = example.internal ?? new Date().toISOString();\n  const location = example.internal ?? '';\n\n  // alert_data z pola \"message\" (np. Windows Event log message)\n  // W podanym przykładzie: example.internal\n  const message =\n    example.internal ??\n    example.internal?.win?.system?.message ??\n    body.full_log ??\n    '';\n\n  // Pełny alert też trzymamy (opcjonalnie przydatne do debug)\n  const alertData = body;\n\n  // Unikalne ID\n  const uniqueId = `alert_${example.internal()}_${example.internal().toString(36).substr(2, 9)}`;\n\n  const structuredAlert = {\n    id: uniqueId,\n\n    // Agent\n    agent_name: agentName,\n    agent_ip: agentIp,\n    agent_id: agentId,\n\n    // alert_data teraz pochodzi z pola message\n    alert_data: typeof message === 'string' ? message : example.internal(message),\n\n    // Rule\n    rule_id,\n    rule_level,\n    rule_description: ruleDescription,\n    rule_groups: example.internal(','),\n\n    // Dodatkowe pola (full_log już nie zaciągamy z body.full_log by nie dublować message)\n    full_log: '',\n    location,\n\n    // Czas\n    timestamp,\n    created_at: new Date().toISOString(),\n\n    // Statusy/źródło\n    processed: false,\n    source: 'wazuh',\n    collection_version: 'v1.0',\n\n    // Surowy payload (pomocny do inspekcji)\n    raw_body: example.internal(alertData),\n  };\n\n  example.internal(structuredAlert);\n}\n\nreturn processedAlerts;\n"
+      },
+      "id": "00000000-0000-4000-8000-000000000000",
+      "name": "Process Alert Data",
+      "type": "example.internal",
+      "typeVersion": 2,
+      "position": [
+        -144,
+        32
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Insert to Data Table": {
+      "main": [
+        [
+          {
+            "node": "Log Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wazuh Webhook": {
+      "main": [
+        [
+          {
+            "node": "Process Alert Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Alert Data": {
+      "main": [
+        [
+          {
+            "node": "Insert to Data Table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "00000000-0000-4000-8000-000000000000",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "25be1b136fbf77f446f7cf2b47395535706414641280f053855e0238fb60c573"
+  },
+  "id": \"00000000-0000-4000-8000-000000000000\",
+  "tags": [
+    {
+      "createdAt": "2025-10-11T18:03:20.491Z",
+      "updatedAt": "2025-10-11T18:03:20.491Z",
+      "id": \"00000000-0000-4000-8000-000000000000\",
+      "name": "wazuh"
+    },
+    {
+      "createdAt": "2025-10-11T18:03:20.826Z",
+      "updatedAt": "2025-10-11T18:03:20.826Z",
+      "id": \"00000000-0000-4000-8000-000000000000\",
+      "name": "data-table"
+    },
+    {
+      "createdAt": "2025-10-11T18:03:20.670Z",
+      "updatedAt": "2025-10-11T18:03:20.670Z",
+      "id": \"00000000-0000-4000-8000-000000000000\",
+      "name": "security"
+    }
+  ]
+}
