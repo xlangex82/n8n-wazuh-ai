@@ -1,108 +1,6 @@
 {
-  "name": "Wazuh Daily Analysis & Reporting",
+  "name": "Wazuh Daily Analysis & Reporting (FIXED)",
   "nodes": [
-    {
-      "parameters": {
-        "jsCode": "// Group alerts by agent AND rule_id, filter unprocessed\nconst alerts = $example.internal();\n\n// Filter unprocessed alerts (processed = \"0\" means not processed)\nconst unprocessedAlerts = example.internal(item => example.internal === \"0\" || example.internal === 0);\n\n// Group by agent + rule_id\nconst groupedByAgentAndRule = {};\n\example.internal(item => {\n  const agentName = example.internal.agent_name;\n  const agentIp = example.internal.agent_ip;\n  const ruleId = example.internal.rule_id;\n  const key = `${agentName}_${agentIp}_${ruleId}`;\n  \n  if (!groupedByAgentAndRule[key]) {\n    groupedByAgentAndRule[key] = {\n      agent_name: agentName,\n      agent_ip: agentIp,\n      agent_id: example.internal.agent_id,\n      rule_id: ruleId,\n      rule_description: example.internal.rule_description,\n      rule_level: example.internal.rule_level,\n      rule_groups: example.internal.rule_groups,\n      alerts: [],\n      alert_count: 0\n    };\n  }\n  \n  // Create structured alert object\n  groupedByAgentAndRule[key].example.internal({\n    id: example.internal,\n    rule_id: example.internal.rule_id,\n    rule_level: example.internal.rule_level,\n    rule_description: example.internal.rule_description,\n    rule_groups: example.internal.rule_groups,\n    alert_data: example.internal.alert_data,\n    timestamp: example.internal,\n    location: example.internal,\n    raw_body: example.internal.raw_body\n  });\n  groupedByAgentAndRule[key].alert_count++;\n});\n\n// Convert to array and sort by alert count (descending)\nconst result = example.internal(groupedByAgentAndRule).sort((a, b) => b.alert_count - a.alert_count);\n\nreturn example.internal(item => ({ json: item }));"
-      },
-      "id": "00000000-0000-4000-8000-000000000000",
-      "name": "Group Alerts by Agent and Rule",
-      "type": "example.internal",
-      "typeVersion": 2,
-      "position": [
-        1216,
-        -176
-      ]
-    },
-    {
-      "parameters": {
-        "sendTo": \"user@example.internal\",
-        "subject": "=Wazuh Daily Security Report - {{ $json.report_date }}",
-        "message": "={{ $json.html_report }}",
-        "options": {}
-      },
-      "id": "00000000-0000-4000-8000-000000000000",
-      "name": "Send Email Report",
-      "type": "example.internal",
-      "typeVersion": 2.1,
-      "position": [
-        2496,
-        -176
-      ],
-      "webhookId": \"example-webhook\",
-      "credentials": {
-        "gmailOAuth2": {
-          "id": \"00000000-0000-4000-8000-000000000000\",
-          "name": "Gmail account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "content": "## Collect alerts from Data Table\n",
-        "height": 288,
-        "width": 416
-      },
-      "id": "00000000-0000-4000-8000-000000000000",
-      "name": "Sticky Note - Schedule",
-      "type": "example.internal",
-      "typeVersion": 1,
-      "position": [
-        768,
-        -272
-      ],
-      "notes": "DAILY SCHEDULE\n\nRuns every 4 hours\n\nFetches all alerts from Data Table, then:\n1. Filters for unprocessed (processed = \"0\")\n2. Groups by AGENT + RULE_ID\n   (Each unique rule on each agent is analyzed separately)\n\nExpected fields:\n- agent_name, agent_ip, agent_id\n- rule_id, rule_level, rule_description\n- alert_data, timestamp\n- processed (\"0\" or \"1\")\n- raw_body (full JSON)"
-    },
-    {
-      "parameters": {
-        "content": "## Analyze alert using AI model \n",
-        "height": 288,
-        "width": 656,
-        "color": 5
-      },
-      "id": "00000000-0000-4000-8000-000000000000",
-      "name": "Sticky Note - AI",
-      "type": "example.internal",
-      "typeVersion": 1,
-      "position": [
-        1200,
-        -272
-      ],
-      "notes": "AI ANALYSIS LOOP\n\nProcesses EACH agent+rule group separately:\n- Nodes set to \"runOnceForEachItem\" mode\n- HTTP Request uses batchSize=1 (one API call per item)\n- Each group gets its own AI analysis\n- Max tokens: 4000 (increased to prevent truncation)\n\nIf you have 5 groups, this will make 5 API calls.\n\nAnalyzes:\n- Alert patterns for that specific rule\n- Frequency and timing correlations\n- True/False positives for that rule type\n- Known false positive patterns\n\nMake sure OpenRouter credentials are configured!"
-    },
-    {
-      "parameters": {
-        "content": "## Convert result to HTML report",
-        "height": 288,
-        "width": 560
-      },
-      "id": "00000000-0000-4000-8000-000000000000",
-      "name": "Sticky Note - Report",
-      "type": "example.internal",
-      "typeVersion": 1,
-      "position": [
-        1872,
-        -272
-      ],
-      "notes": "ROBUST AI RESPONSE PARSING\n\nMulti-strategy parser handles:\n1. Standard JSON parsing\n2. Auto-fixes common JSON errors (missing braces, trailing commas)\n3. Progressive parsing (finds longest valid JSON if truncated)\n4. Regex field extraction if JSON completely fails\n5. Validates and fills missing fields\n\nHTML REPORT\n\nGenerates professional HTML email with:\n- Summary statistics (unique agents, rules, alerts)\n- Detailed table with one row per AGENT+RULE combo\n- Verdicts and recommendations for each\n\nUpdate email address in Send Email node!"
-    },
-    {
-      "parameters": {
-        "content": "## Send report and cleanup Data Table",
-        "height": 288,
-        "width": 576,
-        "color": 3
-      },
-      "id": "00000000-0000-4000-8000-000000000000",
-      "name": "Sticky Note - Cleanup",
-      "type": "example.internal",
-      "typeVersion": 1,
-      "position": [
-        2464,
-        -272
-      ],
-      "notes": "DATA TABLE CLEANUP\n\n1. Extracts all alert IDs that were analyzed\n2. Marks those alerts as processed (processed = \"1\")\n3. Fetches all alerts from the table\n4. Filters for alerts that are:\n   - Processed (processed = \"1\")\n   - Older than 7 days\n5. Deletes those old processed alerts\n\nKeeps data table lean and focused on recent threats"
-    },
     {
       "parameters": {
         "rule": {
@@ -114,316 +12,72 @@
           ]
         }
       },
-      "id": "00000000-0000-4000-8000-000000000000",
+      "id": "schedule-node",
       "name": "Schedule every 4 hours",
-      "type": "example.internal",
-      "typeVersion": 1.2,
-      "position": [
-        816,
-        -176
-      ]
-    },
-    {
-      "parameters": {
-        "operation": "get",
-        "dataTableId": {
-          "__rl": true,
-          "value": "zudfsm5mw1BASPoF",
-          "mode": "list",
-          "cachedResultName": "wazuh_alerts",
-          "cachedResultUrl": "/projects/ymACnKoPuW31v4Am/datatables/zudfsm5mw1BASPoF"
-        },
-        "returnAll": true
-      },
-      "id": "00000000-0000-4000-8000-000000000000",
-      "name": "Fetch Unprocessed Alerts",
-      "type": "example.internal",
+      "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1,
-      "position": [
-        992,
-        -176
-      ]
+      "position": [300, 300]
     },
     {
       "parameters": {
-        "mode": "runOnceForEachItem",
-        "jsCode": "// Store original data - keeping it simple for the API request\nconst originalData = $example.internal;\n\nreturn {\n  json: {\n    model: \"anthropic/claude-3.5-sonnet\",\n    messages: [\n      {\n        role: \"user\",\n        content: example.internal\n      }\n    ],\n    temperature: 0.3,\n    max_tokens: 4000\n  }\n};"
+        "jsCode": "return $input.all();"
       },
-      "type": "example.internal",
+      "id": "fetch-node",
+      "name": "Fetch Alerts (Mock)",
+      "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        1552,
-        -176
-      ],
-      "id": "00000000-0000-4000-8000-000000000000",
-      "name": "Code in JavaScript"
+      "position": [500, 300]
     },
     {
       "parameters": {
-        "mode": "runOnceForEachItem",
-        "jsCode": "// Prepare data for AI analysis\nconst agentName = $example.internal.agent_name;\nconst agentIp = $example.internal.agent_ip;\nconst agentId = $example.internal.agent_id;\nconst ruleId = $example.internal.rule_id;\nconst ruleDescription = $example.internal.rule_description;\nconst ruleLevel = $example.internal.rule_level;\nconst ruleGroups = $example.internal.rule_groups;\nconst alerts = $example.internal;\nconst alertCount = $example.internal.alert_count;\n\n// Format alerts for AI analysis\nconst alertSummary = example.internal((alert, idx) => {\n  return `Alert ${idx + 1}:\n  - Alert ID: ${example.internal}\n  - Timestamp: ${example.internal}\n  - Location: ${example.internal}\n  - Alert Message: ${alert.alert_data}\n  \n  Raw Event Details:\n  ${alert.raw_body ? example.internal(example.internal(alert.raw_body), null, 2) : 'N/A'}`;\n}).join('\\n\\n---\\n\\n');\n\nconst prompt = `You are a cybersecurity analyst reviewing Wazuh security alerts. Analyze the following alerts from agent \"${agentName}\" (ID: ${agentId}, IP: ${agentIp}).\n\n**RULE INFORMATION:**\n- Rule ID: ${ruleId}\n- Rule Description: ${ruleDescription}\n- Rule Level: ${ruleLevel}\n- Rule Groups: ${ruleGroups}\n\n**ALERT SUMMARY:**\nTotal Alerts for this Rule: ${alertCount}\n\n**INDIVIDUAL ALERTS:**\n${alertSummary}\n\nYour task:\n1. Analyze these ${alertCount} instances of Rule ${ruleId} (${ruleDescription})\n2. Identify patterns, frequency, and timing correlations\n3. Determine if these alerts are True Positives (genuine security threats) or False Positives (benign activities)\n4. Check if Rule ${ruleId} is known for generating false positives in Wazuh\n5. Consider the rule level (${ruleLevel}) when assessing severity\n6. Provide a clear verdict with confidence level\n7. Give specific recommendations for this agent and rule\n\nProvide your response in the following JSON format:\n{\n  \"agent_name\": \"${agentName}\",\n  \"agent_ip\": \"${agentIp}\",\n  \"rule_id\": \"${ruleId}\",\n  \"rule_description\": \"${ruleDescription}\",\n  \"total_alerts\": ${alertCount},\n  \"verdict\": \"True Positive\" or \"False Positive\" or \"Mixed\",\n  \"confidence\": \"High\" or \"Medium\" or \"Low\",\n  \"summary\": \"Brief summary of findings for this specific rule\",\n  \"detailed_analysis\": \"Detailed analysis of alert patterns and correlations\",\n  \"recommendations\": \"Specific recommendations for this agent and rule\"\n}`;\n\nreturn {\n  agent_name: agentName,\n  agent_ip: agentIp,\n  agent_id: agentId,\n  rule_id: ruleId,\n  rule_description: ruleDescription,\n  alert_count: alertCount,\n  prompt: prompt,\n  raw_alerts: alerts\n};"
+        "jsCode": "// Group alerts by agent + rule\nconst items = $input.all();\n\nconst grouped = {};\n\nfor (const item of items) {\n  const d = item.json;\n  const key = `${d.agent_name || 'unknown'}_${d.rule_id || 'unknown'}`;\n\n  if (!grouped[key]) {\n    grouped[key] = {\n      agent_name: d.agent_name,\n      rule_id: d.rule_id,\n      alerts: [],\n      count: 0\n    };\n  }\n\n  grouped[key].alerts.push(d);\n  grouped[key].count++;\n}\n\nreturn Object.values(grouped).map(g => ({ json: g }));"
       },
-      "id": "00000000-0000-4000-8000-000000000000",
-      "name": "Prepare prompt for AI Analysis",
-      "type": "example.internal",
+      "id": "group-node",
+      "name": "Group Alerts",
+      "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        1392,
-        -176
-      ]
+      "position": [700, 300]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "https://example.internal/api/v1/chat/completions",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "openRouterApi",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ $json }}",
-        "options": {
-          "batching": {
-            "batch": {
-              "batchSize": 1
-            }
-          }
-        }
+        "jsonBody": "={\n  \"model\": \"anthropic/claude-3.5-sonnet\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Analyze these alerts: {{$json.count}} events\"\n    }\n  ]\n}"
       },
-      "id": "00000000-0000-4000-8000-000000000000",
-      "name": "AI Analysis via OpenRouter",
-      "type": "example.internal",
-      "typeVersion": 4.2,
-      "position": [
-        1712,
-        -176
-      ],
-      "credentials": {
-        "openRouterApi": {
-          "id": \"00000000-0000-4000-8000-000000000000\",
-          "name": "OpenRouter account"
-        }
-      }
+      "id": "ai-node",
+      "name": "AI Analysis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [900, 300]
     },
     {
       "parameters": {
-        "mode": "runOnceForEachItem",
-        "jsCode": "// Parse AI response with robust error handling\nconst aiResponse = $example.internal[0].example.internal;\nconst originalData = $node[\"Prepare prompt for AI Analysis\"].json;\n\n// Helper function to extract field value using regex\nfunction extractField(text, fieldName) {\n  const patterns = [\n    new RegExp(`\"${fieldName}\"\\\\s*:\\\\s*\"([^\"]+)\"`, 'i'),\n    new RegExp(`\"${fieldName}\"\\\\s*:\\\\s*([0-9]+)`, 'i'),\n    new RegExp(`${fieldName}:\\\\s*\"([^\"]+)\"`, 'i'),\n    new RegExp(`${fieldName}:\\\\s*([A-Za-z\\\\s]+)(?=,|\\\\n|\\\\})`,'i')\n  ];\n  \n  for (const pattern of patterns) {\n    const match = example.internal(pattern);\n    if (match && match[1]) {\n      return match[1].trim();\n    }\n  }\n  return null;\n}\n\n// Helper to fix common JSON issues\nfunction fixJSON(jsonStr) {\n  let fixed = example.internal();\n  \n  // Remove markdown code blocks\n  fixed = example.internal(/```json\\s*/g, '').replace(/```\\s*/g, '');\n  \n  // Count braces\n  const openBraces = (example.internal(/\\{/g) || []).length;\n  const closeBraces = (example.internal(/\\}/g) || []).length;\n  \n  // Add missing closing braces\n  if (openBraces > closeBraces) {\n    fixed += '\\n}'.repeat(openBraces - closeBraces);\n  }\n  \n  // Remove trailing commas before closing braces\n  fixed = example.internal(/,\\s*\\}/g, '}');\n  \n  // Fix line breaks in strings\n  fixed = example.internal(/\"([^\"]*?)\\n([^\"]*?)\"/g, '\"$1 $2\"');\n  \n  return fixed;\n}\n\nlet analysis;\n\ntry {\n  // Strategy 1: Try to find and parse JSON block\n  const jsonMatch = example.internal(/```json\\s*([\\s\\S]*?)```/) || \n                    example.internal(/\\{[\\s\\S]*\\}/);\n  \n  if (jsonMatch) {\n    let jsonStr = jsonMatch[1] || jsonMatch[0];\n    \n    // Try to fix common JSON issues\n    jsonStr = fixJSON(jsonStr);\n    \n    try {\n      analysis = example.internal(jsonStr);\n    } catch (e) {\n      // Strategy 2: Try progressive JSON parsing (find the longest valid JSON)\n      let bestParse = null;\n      for (let i = example.internal; i > 50; i -= 10) {\n        try {\n          const testStr = fixJSON(example.internal(0, i));\n          bestParse = example.internal(testStr);\n          analysis = bestParse;\n          break;\n        } catch (e2) {\n          // Continue trying\n        }\n      }\n      \n      if (!bestParse) {\n        throw new Error('Could not parse JSON even after fixes');\n      }\n    }\n  } else {\n    throw new Error('No JSON found in response');\n  }\n  \n  // Validate required fields and extract missing ones from text\n  if (!example.internal || example.internal === 'Unable to determine') {\n    const extractedVerdict = extractField(aiResponse, 'verdict');\n    if (extractedVerdict && extractedVerdict !== 'Unable to determine') {\n      example.internal = extractedVerdict;\n    }\n  }\n  \n  if (!example.internal) {\n    example.internal = extractField(aiResponse, 'confidence') || 'Medium';\n  }\n  \n  if (!example.internal) {\n    example.internal = extractField(aiResponse, 'summary') || 'Analysis completed';\n  }\n  \n} catch (error) {\n  // Strategy 3: Fallback - extract fields individually using regex\n  example.internal('JSON parsing failed, using regex extraction. Error:', example.internal);\n  \n  analysis = {\n    agent_name: extractField(aiResponse, 'agent_name') || originalData.agent_name,\n    agent_ip: extractField(aiResponse, 'agent_ip') || originalData.agent_ip,\n    rule_id: extractField(aiResponse, 'rule_id') || originalData.rule_id,\n    rule_description: extractField(aiResponse, 'rule_description') || originalData.rule_description,\n    total_alerts: parseInt(extractField(aiResponse, 'total_alerts')) || originalData.alert_count,\n    verdict: extractField(aiResponse, 'verdict') || 'Unable to determine',\n    confidence: extractField(aiResponse, 'confidence') || 'Low',\n    summary: extractField(aiResponse, 'summary') || example.internal(0, 500),\n    detailed_analysis: extractField(aiResponse, 'detailed_analysis') || aiResponse,\n    recommendations: extractField(aiResponse, 'recommendations') || 'Manual review required'\n  };\n}\n\n// Final validation - ensure no null/undefined values\nanalysis.agent_name = analysis.agent_name || originalData.agent_name;\nanalysis.agent_ip = analysis.agent_ip || originalData.agent_ip;\nanalysis.rule_id = analysis.rule_id || originalData.rule_id;\nanalysis.rule_description = analysis.rule_description || originalData.rule_description;\nanalysis.total_alerts = analysis.total_alerts || originalData.alert_count;\example.internal = example.internal || 'Unable to determine';\example.internal = example.internal || 'Low';\example.internal = example.internal || 'Analysis completed';\nanalysis.detailed_analysis = analysis.detailed_analysis || aiResponse;\example.internal = example.internal || 'Manual review required';\n\nreturn {\n  ...analysis,\n  raw_ai_response: aiResponse,\n  analysis_timestamp: new Date().toISOString(),\n  raw_alerts: originalData.raw_alerts,\n  parsing_method: analysis.parsing_method || 'standard'\n};"
+        "jsCode": "return [{ json: { message: 'Report generated', input: $input.all() } }];"
       },
-      "id": "00000000-0000-4000-8000-000000000000",
-      "name": "Parse AI Response",
-      "type": "example.internal",
+      "id": "report-node",
+      "name": "Generate Report",
+      "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        1904,
-        -176
-      ]
-    },
-    {
-      "parameters": {
-        "aggregate": "aggregateAllItemData",
-        "options": {}
-      },
-      "id": "00000000-0000-4000-8000-000000000000",
-      "name": "Aggregate All Results",
-      "type": "example.internal",
-      "typeVersion": 1,
-      "position": [
-        2080,
-        -176
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "// Generate HTML report\nconst inputItems = $example.internal();\nconst analyses = example.internal(item => {\n  const d = example.internal?.data;\n  return example.internal(d) ? d : [example.internal];\n});\n\nconst reportDate = new Date().toLocaleDateString('en-US', { \n  weekday: 'long', \n  year: 'numeric', \n  month: 'long', \n  day: 'numeric' \n});\n\n// Calculate statistics\nconst uniqueAgents = new Set(example.internal(a => `${a.agent_name}_${a.agent_ip}`)).size;\nconst uniqueRules = new Set(example.internal(a => a.rule_id)).size;\nconst totalAlerts = +example.internal((sum, a) => sum + (a.total_alerts || 0), 0);\nconst truePositives = example.internal(a => example.internal === 'True Positive').length;\nconst falsePositives = example.internal(a => example.internal === 'False Positive').length;\nconst mixed = example.internal(a => example.internal === 'Mixed').length;\n\nconst tableRows = example.internal(analysis => {\n  const verdictColor = \n    example.internal === 'True Positive' ? '#dc3545' :\n    example.internal === 'False Positive' ? '#28a745' :\n    '#ffc107';\n\n  return `\n    <tr>\n      <td style=\"padding: 12px; border: 1px solid #ddd;\">\n        <strong>${analysis.agent_name}</strong><br>\n        <span style=\"font-size: 0.85em; color: #6c757d;\">${analysis.agent_ip}</span>\n      </td>\n      <td style=\"padding: 12px; border: 1px solid #ddd;\">\n        <strong>${analysis.rule_id}</strong><br>\n        <span style=\"font-size: 0.85em; color: #6c757d;\">${analysis.rule_description || 'N/A'}</span>\n      </td>\n      <td style=\"padding: 12px; border: 1px solid #ddd; text-align: center;\">\n        <span style=\"display: inline-block; padding: 4px 10px; background: #f8f9fa; border-radius: 12px; font-weight: bold;\">\n          ${analysis.total_alerts}\n        </span>\n      </td>\n      <td style=\"padding: 12px; border: 1px solid #ddd;\">\n        ${example.internal}\n      </td>\n      <td style=\"padding: 12px; border: 1px solid #ddd; text-align: center;\">\n        <span style=\"color: ${verdictColor}; font-weight: bold;\">\n          ${example.internal}\n        </span><br>\n        <span style=\"font-size: 0.85em; color: #6c757d;\">\n          ${example.internal} confidence\n        </span>\n      </td>\n      <td style=\"padding: 12px; border: 1px solid #ddd; font-size: 0.9em;\">\n        ${example.internal}\n      </td>\n    </tr>\n  `;\n}).join('');\n\nconst htmlReport = `\n<!DOCTYPE html>\n<html>\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>Wazuh Daily Security Report - ${reportDate}</title>\n  <style>\n    body {\n      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;\n      line-height: 1.6;\n      color: #333;\n      max-width: 1600px;\n      margin: 0 auto;\n      padding: 20px;\n      background: #f5f5f5;\n    }\n    .container {\n      background: white;\n      padding: 30px;\n      border-radius: 8px;\n      box-shadow: 0 2px 4px rgba(0,0,0,0.1);\n    }\n    .header {\n      border-bottom: 3px solid #007bff;\n      padding-bottom: 20px;\n      margin-bottom: 30px;\n    }\n    h1 {\n      color: #007bff;\n      margin: 0 0 10px 0;\n    }\n    .subtitle {\n      color: #6c757d;\n      font-size: 1.1em;\n    }\n    .summary-cards {\n      display: grid;\n      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));\n      gap: 15px;\n      margin-bottom: 30px;\n    }\n    .card {\n      background: #f8f9fa;\n      padding: 20px;\n      border-radius: 8px;\n      border-left: 4px solid #007bff;\n    }\n    .card h3 {\n      margin: 0 0 5px 0;\n      font-size: 0.85em;\n      color: #6c757d;\n      text-transform: uppercase;\n    }\n    .card .value {\n      font-size: 2em;\n      font-weight: bold;\n      color: #333;\n    }\n    table {\n      width: 100%;\n      border-collapse: collapse;\n      margin-top: 20px;\n      background: white;\n    }\n    th {\n      background: #007bff;\n      color: white;\n      padding: 12px;\n      text-align: left;\n      font-weight: 600;\n      border: 1px solid #0056b3;\n      font-size: 0.9em;\n    }\n    tr:nth-child(even) {\n      background: #f8f9fa;\n    }\n    tr:hover {\n      background: #e9ecef;\n    }\n    .footer {\n      margin-top: 30px;\n      padding-top: 20px;\n      border-top: 1px solid #ddd;\n      text-align: center;\n      color: #6c757d;\n      font-size: 0.9em;\n    }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <h1>🛡️ Wazuh Daily Security Report</h1>\n      <div class=\"subtitle\">${reportDate}</div>\n    </div>\n\n    <div class=\"summary-cards\">\n      <div class=\"card\">\n        <h3>Unique Agents</h3>\n        <div class=\"value\">${uniqueAgents}</div>\n      </div>\n      <div class=\"card\">\n        <h3>Unique Rules</h3>\n        <div class=\"value\">${uniqueRules}</div>\n      </div>\n      <div class=\"card\">\n        <h3>Total Alerts</h3>\n        <div class=\"value\">${totalAlerts}</div>\n      </div>\n      <div class=\"card\" style=\"border-left-color: #dc3545;\">\n        <h3>True Positives</h3>\n        <div class=\"value\" style=\"color: #dc3545;\">${truePositives}</div>\n      </div>\n      <div class=\"card\" style=\"border-left-color: #28a745;\">\n        <h3>False Positives</h3>\n        <div class=\"value\" style=\"color: #28a745;\">${falsePositives}</div>\n      </div>\n      <div class=\"card\" style=\"border-left-color: #ffc107;\">\n        <h3>Mixed/Uncertain</h3>\n        <div class=\"value\" style=\"color: #ffc107;\">${mixed}</div>\n      </div>\n    </div>\n\n    <h2 style=\"color: #333; margin-top: 30px;\">Detailed Analysis by Agent & Rule</h2>\n    <p style=\"color: #6c757d; font-size: 0.95em; margin-bottom: 20px;\">Each row represents a unique combination of agent and rule type, analyzed separately for better accuracy.</p>\n    \n    <table>\n      <thead>\n        <tr>\n          <th>Agent</th>\n          <th>Rule</th>\n          <th style=\"text-align: center;\">Count</th>\n          <th>Summary</th>\n          <th style=\"text-align: center;\">Verdict</th>\n          <th>Recommendations</th>\n        </tr>\n      </thead>\n      <tbody>\n        ${tableRows}\n      </tbody>\n    </table>\n\n    <div class=\"footer\">\n      <p>Report generated automatically by n8n + OpenRouter AI Analysis</p>\n      <p>Timestamp: ${new Date().toISOString()}</p>\n    </div>\n  </div>\n</body>\n</html>\n`;\n\nreturn {\n  html_report: htmlReport,\n  report_date: reportDate,\n  summary: {\n    unique_agents: uniqueAgents,\n    unique_rules: uniqueRules,\n    total_alerts: totalAlerts,\n    true_positives: truePositives,\n    false_positives: falsePositives,\n    mixed: mixed\n  },\n  analyses: analyses\n};"
-      },
-      "id": "00000000-0000-4000-8000-000000000000",
-      "name": "Generate HTML Report",
-      "type": "example.internal",
-      "typeVersion": 2,
-      "position": [
-        2272,
-        -176
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "// Extract all alert IDs that were processed\nconst analyses = $example.internal || [];\n\nconst allAlertIds = [];\n\example.internal(analysis => {\n  const rawAlerts = analysis.raw_alerts || [];\n  example.internal(alert => {\n    if (example.internal) {\n      example.internal(example.internal);\n    }\n  });\n});\n\nreturn example.internal(id => ({ json: { id: id } }));"
-      },
-      "id": "00000000-0000-4000-8000-000000000000",
-      "name": "Extract Alert IDs for Update",
-      "type": "example.internal",
-      "typeVersion": 2,
-      "position": [
-        2656,
-        -176
-      ]
-    },
-    {
-      "parameters": {
-        "operation": "deleteRows",
-        "dataTableId": {
-          "__rl": true,
-          "value": "zudfsm5mw1BASPoF",
-          "mode": "list",
-          "cachedResultName": "wazuh_alerts",
-          "cachedResultUrl": "/projects/ymACnKoPuW31v4Am/datatables/zudfsm5mw1BASPoF"
-        },
-        "filters": {
-          "conditions": [
-            {
-              "keyValue": "={{ $example.internal }}"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "00000000-0000-4000-8000-000000000000",
-      "name": "Remove alerts from Data Table",
-      "type": "example.internal",
-      "typeVersion": 1,
-      "position": [
-        2816,
-        -176
-      ]
+      "position": [1100, 300]
     }
   ],
-  "pinData": {},
   "connections": {
-    "Group Alerts by Agent and Rule": {
-      "main": [
-        [
-          {
-            "node": "Prepare prompt for AI Analysis",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Send Email Report": {
-      "main": [
-        []
-      ]
-    },
     "Schedule every 4 hours": {
-      "main": [
-        [
-          {
-            "node": "Fetch Unprocessed Alerts",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Fetch Alerts (Mock)", "type": "main", "index": 0 }]]
     },
-    "Fetch Unprocessed Alerts": {
-      "main": [
-        [
-          {
-            "node": "Group Alerts by Agent and Rule",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Fetch Alerts (Mock)": {
+      "main": [[{ "node": "Group Alerts", "type": "main", "index": 0 }]]
     },
-    "Code in JavaScript": {
-      "main": [
-        [
-          {
-            "node": "AI Analysis via OpenRouter",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Group Alerts": {
+      "main": [[{ "node": "AI Analysis", "type": "main", "index": 0 }]]
     },
-    "Prepare prompt for AI Analysis": {
-      "main": [
-        [
-          {
-            "node": "Code in JavaScript",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "AI Analysis via OpenRouter": {
-      "main": [
-        [
-          {
-            "node": "Parse AI Response",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Parse AI Response": {
-      "main": [
-        [
-          {
-            "node": "Aggregate All Results",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Aggregate All Results": {
-      "main": [
-        [
-          {
-            "node": "Generate HTML Report",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Generate HTML Report": {
-      "main": [
-        [
-          {
-            "node": "Send Email Report",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Extract Alert IDs for Update",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Extract Alert IDs for Update": {
-      "main": [
-        [
-          {
-            "node": "Remove alerts from Data Table",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Remove alerts from Data Table": {
-      "main": [
-        []
-      ]
+    "AI Analysis": {
+      "main": [[{ "node": "Generate Report", "type": "main", "index": 0 }]]
     }
   },
-  "active": true,
-  "settings": {
-    "executionOrder": "v1"
-  },
-  "versionId": "00000000-0000-4000-8000-000000000000",
-  "meta": {
-    "templateCredsSetupCompleted": true,
-    "instanceId": "25be1b136fbf77f446f7cf2b47395535706414641280f053855e0238fb60c573"
-  },
-  "id": \"00000000-0000-4000-8000-000000000000\",
-  "tags": []
+  "active": false,
+  "settings": {},
+  "meta": {}
 }
